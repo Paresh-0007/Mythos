@@ -1,8 +1,3 @@
-Sure! Here's a polished and professional `README.md` tailored for your collaborative storytelling and world-building platform, incorporating the design and functional elements you described:
-
----
-
-````markdown
 # ✨ Mythos — Collaborative Storytelling & World-Building Platform
 
 **Mythos** is a beautiful, pastel-themed full-stack web application that empowers writers to collaboratively build stories, characters, and immersive worlds. Designed for creators, by creators — Mythos provides real-time editing, version control, and narrative visualization tools to bring your stories to life.
@@ -92,7 +87,7 @@ Sure! Here's a polished and professional `README.md` tailored for your collabora
    ```bash
    git clone https://github.com/your-username/mythos.git
    cd mythos
-````
+
 
 2. **Install dependencies:**
 
