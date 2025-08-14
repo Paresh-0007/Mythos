@@ -148,25 +148,8 @@ We welcome community contributions! Please fork the repo and submit a pull reque
 
 ---
 
-## 📄 License
-
-MIT License — feel free to use, fork, and build upon Mythos.
-
----
-
 ## 🌐 Demo
 
 [Live Demo](https://mythos.app) *(coming soon)*
 
----
-
-## 🧙‍♀️ Join the Story
-
-> Let your imagination run wild. Start your collaborative adventure with **Mythos** today.
-
-```
-
----
-
-Let me know if you’d like this formatted for GitHub-flavored Markdown with visuals (e.g. badges, screenshots, live demo GIFs), or split into smaller files for a monorepo.
 ```
