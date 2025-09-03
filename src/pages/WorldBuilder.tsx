@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { 
   Plus, 
   Search, 
@@ -14,18 +13,20 @@ import {
   Trash2
 } from 'lucide-react';
 import Navigation from '../components/Navigation';
-import { useProjectStore, WorldElement } from '../store/projectStore';
+import { useProjectStore } from '../store/projectStore';
 
-const WorldBuilder: React.FC = () => {
+const WorldBuilder = () => {
   const { projectId } = useParams();
   const { projects, currentProject, setCurrentProject, addWorldElement } = useProjectStore();
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+// selectedType can be one of the element type keys OR null
   const [selectedType, setSelectedType] = useState<string | null>(null);
+// selectedElement is the ID of a world element OR null
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const project = projects.find(p => p.id === projectId);
     if (project) {
       setCurrentProject(project);
@@ -33,11 +34,11 @@ const WorldBuilder: React.FC = () => {
   }, [projectId, projects, setCurrentProject]);
 
   const elementTypes = [
-    { type: 'location', label: 'Locations', icon: MapPin, color: 'from-accent-400 to-accent-600' },
-    { type: 'organization', label: 'Organizations', icon: Building, color: 'from-primary-400 to-primary-600' },
-    { type: 'magic-system', label: 'Magic Systems', icon: Sparkles, color: 'from-secondary-400 to-secondary-600' },
-    { type: 'culture', label: 'Cultures', icon: Users, color: 'from-warm-400 to-warm-600' },
-    { type: 'technology', label: 'Technology', icon: Cpu, color: 'from-gray-400 to-gray-600' },
+    { type: 'location', label: 'Locations', icon: MapPin, color: 'bg-purple-500' },
+    { type: 'organization', label: 'Organizations', icon: Building, color: 'bg-blue-500' },
+    { type: 'magic-system', label: 'Magic Systems', icon: Sparkles, color: 'bg-green-500' },
+    { type: 'culture', label: 'Cultures', icon: Users, color: 'bg-orange-500' },
+    { type: 'technology', label: 'Technology', icon: Cpu, color: 'bg-gray-500' },
   ];
 
   const filteredElements = currentProject?.worldElements.filter(element => {
@@ -66,18 +67,16 @@ const WorldBuilder: React.FC = () => {
       
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <div className="w-80 bg-white/80 backdrop-blur-sm border-r border-primary-200/50 flex flex-col">
-          <div className="p-4 border-b border-primary-200/50">
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+          <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display text-xl font-semibold text-gray-800">World Builder</h2>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <h2 className="text-xl font-semibold text-gray-800">World Builder</h2>
+              <button
                 onClick={() => setShowCreateModal(true)}
-                className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white p-2 rounded-lg hover:shadow-lg transition-all"
+                className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
               >
                 <Plus className="w-4 h-4" />
-              </motion.button>
+              </button>
             </div>
             
             <div className="relative mb-4">
@@ -87,15 +86,15 @@ const WorldBuilder: React.FC = () => {
                 placeholder="Search world elements..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-primary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white/50"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             
             <div className="space-y-2">
               <button
                 onClick={() => setSelectedType(null)}
-                className={`w-full text-left p-2 rounded-lg transition-colors ${
-                  !selectedType ? 'bg-primary-100 text-primary-700' : 'hover:bg-primary-50 text-gray-700'
+                className={`w-full text-left p-2 rounded ${
+                  !selectedType ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >
                 All Elements
@@ -104,8 +103,8 @@ const WorldBuilder: React.FC = () => {
                 <button
                   key={type.type}
                   onClick={() => setSelectedType(type.type)}
-                  className={`w-full text-left p-2 rounded-lg transition-colors flex items-center gap-2 ${
-                    selectedType === type.type ? 'bg-primary-100 text-primary-700' : 'hover:bg-primary-50 text-gray-700'
+                  className={`w-full text-left p-2 rounded flex items-center gap-2 ${
+                    selectedType === type.type ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
                   <type.icon className="w-4 h-4" />
@@ -129,18 +128,17 @@ const WorldBuilder: React.FC = () => {
                   const Icon = elementType?.icon || Globe;
                   
                   return (
-                    <motion.div
+                    <div
                       key={element.id}
-                      whileHover={{ scale: 1.02 }}
-                      className={`p-4 rounded-lg cursor-pointer transition-all border ${
+                      className={`p-4 rounded cursor-pointer border ${
                         selectedElement === element.id
-                          ? 'bg-primary-100 border-primary-300'
-                          : 'bg-white/60 border-primary-200/50 hover:bg-primary-50'
+                          ? 'bg-blue-100 border-blue-300'
+                          : 'bg-white border-gray-200 hover:bg-gray-50'
                       }`}
                       onClick={() => setSelectedElement(element.id)}
                     >
                       <div className="flex items-center gap-3 mb-2">
-                        <div className={`w-8 h-8 bg-gradient-to-br ${elementType?.color || 'from-gray-400 to-gray-600'} rounded-lg flex items-center justify-center`}>
+                        <div className={`w-8 h-8 ${elementType?.color || 'bg-gray-500'} rounded flex items-center justify-center`}>
                           <Icon className="w-4 h-4 text-white" />
                         </div>
                         <div className="flex-1">
@@ -149,10 +147,10 @@ const WorldBuilder: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="text-xs bg-secondary-100 text-secondary-700 px-2 py-1 rounded inline-block">
+                      <div className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded inline-block">
                         {elementType?.label}
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>
@@ -164,20 +162,20 @@ const WorldBuilder: React.FC = () => {
         <div className="flex-1 flex flex-col">
           {selectedWorldElement ? (
             <>
-              <div className="bg-white/80 backdrop-blur-sm border-b border-primary-200/50 p-6">
+              <div className="bg-white border-b border-gray-200 p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     {(() => {
                       const elementType = elementTypes.find(t => t.type === selectedWorldElement.type);
                       const Icon = elementType?.icon || Globe;
                       return (
-                        <div className={`w-12 h-12 bg-gradient-to-br ${elementType?.color || 'from-gray-400 to-gray-600'} rounded-xl flex items-center justify-center`}>
+                        <div className={`w-12 h-12 ${elementType?.color || 'bg-gray-500'} rounded-lg flex items-center justify-center`}>
                           <Icon className="w-6 h-6 text-white" />
                         </div>
                       );
                     })()}
                     <div>
-                      <h1 className="font-display text-2xl font-bold text-gray-800 mb-1">
+                      <h1 className="text-2xl font-bold text-gray-800 mb-1">
                         {selectedWorldElement.name}
                       </h1>
                       <p className="text-gray-600">{selectedWorldElement.description}</p>
@@ -185,10 +183,10 @@ const WorldBuilder: React.FC = () => {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <button className="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                    <button className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded">
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -197,7 +195,7 @@ const WorldBuilder: React.FC = () => {
               
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-4xl mx-auto">
-                  <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-primary-200/50">
+                  <div className="bg-white rounded p-6 border border-gray-200">
                     <h2 className="font-semibold text-gray-800 mb-4">Details</h2>
                     <div className="space-y-4">
                       {Object.entries(selectedWorldElement.details).map(([key, value]) => (
@@ -227,27 +225,23 @@ const WorldBuilder: React.FC = () => {
 
       {/* Create Element Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl p-6 w-full max-w-md mx-4"
-          >
-            <h2 className="font-display text-xl font-bold text-gray-800 mb-4">Create World Element</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded p-6 w-full max-w-md mx-4">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Create World Element</h2>
             
             <form className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-primary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Element name"
                 />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                <select className="w-full px-3 py-2 border border-primary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <select className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">Select a type</option>
                   {elementTypes.map((type) => (
                     <option key={type.type} value={type.type}>{type.label}</option>
@@ -259,7 +253,7 @@ const WorldBuilder: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <textarea
                   rows={3}
-                  className="w-full px-3 py-2 border border-primary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Brief description"
                 />
               </div>
@@ -268,21 +262,19 @@ const WorldBuilder: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
                 >
                   Cancel
                 </button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                <button
                   type="submit"
-                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-2 rounded-lg font-medium hover:shadow-lg transition-all"
+                  className="bg-blue-500 text-white px-6 py-2 rounded font-medium hover:bg-blue-600"
                 >
                   Create Element
-                </motion.button>
+                </button>
               </div>
             </form>
-          </motion.div>
+          </div>
         </div>
       )}
     </div>
