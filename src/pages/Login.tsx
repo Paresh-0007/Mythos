@@ -1,45 +1,39 @@
-import React from 'react';
-import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { BookOpen, Mail, Lock } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
-interface LoginForm {
+type LoginFormInputs = {
   email: string;
   password: string;
-}
+};
 
-const Login: React.FC = () => {
+const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuthStore();
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginForm>();
+const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormInputs>();
 
-  const onSubmit = async (data: LoginForm) => {
-    try {
-      await login(data.email, data.password);
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-  };
+const onSubmit = async (data: LoginFormInputs) => {
+  try {
+    await login(data.email, data.password);
+    navigate('/dashboard');
+  } catch (error) {
+    console.error('Login failed:', error);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
       <div className="max-w-md w-full">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-primary-200/50"
-        >
+        <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-200">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary-400 to-secondary-500 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
             </div>
-            <h1 className="font-display text-2xl font-bold mb-2 bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold mb-2 text-gray-800">
               Welcome Back
             </h1>
             <p className="text-gray-600">Sign in to your Mythos account</p>
@@ -62,7 +56,7 @@ const Login: React.FC = () => {
                     }
                   })}
                   type="email"
-                  className="w-full pl-10 pr-4 py-3 border border-primary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter your email"
                 />
               </div>
@@ -86,7 +80,7 @@ const Login: React.FC = () => {
                     }
                   })}
                   type="password"
-                  className="w-full pl-10 pr-4 py-3 border border-primary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter your password"
                 />
               </div>
@@ -95,15 +89,13 @@ const Login: React.FC = () => {
               )}
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-primary-500 to-secondary-500 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-500 text-white py-3 rounded font-semibold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Signing In...' : 'Sign In'}
-            </motion.button>
+            </button>
           </form>
 
           {/* Footer */}
@@ -112,7 +104,7 @@ const Login: React.FC = () => {
               Don't have an account?{' '}
               <Link 
                 to="/register" 
-                className="text-primary-600 hover:text-primary-700 font-medium"
+                className="text-blue-600 hover:text-blue-700 font-medium"
               >
                 Sign up
               </Link>
@@ -125,7 +117,7 @@ const Login: React.FC = () => {
               ← Back to home
             </Link>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
