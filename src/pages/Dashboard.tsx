@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Plus, 
@@ -8,7 +7,6 @@ import {
   Users, 
   BookOpen,
   TrendingUp,
-  Calendar,
   FileText,
   Star
 } from 'lucide-react';
@@ -16,7 +14,7 @@ import Navigation from '../components/Navigation';
 import { useProjectStore } from '../store/projectStore';
 import { format } from 'date-fns';
 
-const Dashboard: React.FC = () => {
+const Dashboard = () => {
   const { projects, setCurrentProject } = useProjectStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -31,25 +29,25 @@ const Dashboard: React.FC = () => {
       label: 'Active Projects',
       value: projects.length.toString(),
       icon: BookOpen,
-      color: 'from-primary-400 to-primary-600'
+      color: 'bg-blue-500'
     },
     {
       label: 'Total Words',
       value: projects.reduce((acc, p) => acc + p.wordCount, 0).toLocaleString(),
       icon: FileText,
-      color: 'from-secondary-400 to-secondary-600'
+      color: 'bg-green-500'
     },
     {
       label: 'Collaborators',
       value: '8',
       icon: Users,
-      color: 'from-accent-400 to-accent-600'
+      color: 'bg-purple-500'
     },
     {
       label: 'This Week',
       value: '2.5k',
       icon: TrendingUp,
-      color: 'from-warm-400 to-warm-600'
+      color: 'bg-orange-500'
     }
   ];
 
@@ -61,48 +59,34 @@ const Dashboard: React.FC = () => {
         <div className="p-8">
           {/* Header */}
           <div className="mb-8">
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="font-display text-3xl font-bold mb-2 bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent"
-            >
+            <h1 className="text-3xl font-bold mb-2 text-gray-800">
               Welcome back, Writer!
-            </motion.h1>
+            </h1>
             <p className="text-gray-600">Continue crafting your stories and building new worlds.</p>
           </div>
 
           {/* Stats */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
-          >
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             {stats.map((stat, index) => (
               <div 
                 key={index}
-                className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-primary-200/50"
+                className="bg-white rounded p-6 border border-gray-200"
               >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600 mb-1">{stat.label}</p>
                     <p className="text-2xl font-bold text-gray-800">{stat.value}</p>
                   </div>
-                  <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-lg flex items-center justify-center`}>
+                  <div className={`w-12 h-12 ${stat.color} rounded flex items-center justify-center`}>
                     <stat.icon className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </div>
             ))}
-          </motion.div>
+          </div>
 
           {/* Projects Section */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-primary-200/50"
-          >
+          <div className="bg-white rounded p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-800">Your Stories</h2>
               <div className="flex items-center gap-4">
@@ -113,17 +97,15 @@ const Dashboard: React.FC = () => {
                     placeholder="Search projects..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-primary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white/50"
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:shadow-lg transition-all"
+                <button
+                  className="bg-blue-500 text-white px-4 py-2 rounded font-medium flex items-center gap-2 hover:bg-blue-600"
                 >
                   <Plus className="w-4 h-4" />
                   New Project
-                </motion.button>
+                </button>
               </div>
             </div>
 
@@ -135,13 +117,10 @@ const Dashboard: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredProjects.map((project, index) => (
-                  <motion.div
+                {filteredProjects.map((project) => (
+                  <div
                     key={project.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="bg-white/80 backdrop-blur-sm rounded-lg p-6 border border-primary-200/50 hover:shadow-lg transition-all duration-300 cursor-pointer"
+                    className="bg-white rounded p-6 border border-gray-200 hover:shadow-md transition-all cursor-pointer"
                     onClick={() => setCurrentProject(project)}
                   >
                     <div className="flex items-start justify-between mb-4">
@@ -149,7 +128,7 @@ const Dashboard: React.FC = () => {
                         <h3 className="font-semibold text-gray-800 mb-1">{project.title}</h3>
                         <p className="text-sm text-gray-600 mb-2">{project.description}</p>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <span className="bg-primary-100 text-primary-700 px-2 py-1 rounded">
+                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
                             {project.genre}
                           </span>
                         </div>
@@ -168,7 +147,7 @@ const Dashboard: React.FC = () => {
                         <span className="text-gray-800">75%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-gradient-to-r from-primary-400 to-secondary-500 h-2 rounded-full" style={{ width: '75%' }}></div>
+                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: '75%' }}></div>
                       </div>
                     </div>
 
@@ -201,25 +180,20 @@ const Dashboard: React.FC = () => {
                       </div>
                       <Link
                         to={`/editor/${project.id}`}
-                        className="text-primary-600 hover:text-primary-700 font-medium text-sm"
+                        className="text-blue-600 hover:text-blue-700 font-medium text-sm"
                         onClick={(e) => e.stopPropagation()}
                       >
                         Open →
                       </Link>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             )}
-          </motion.div>
+          </div>
 
           {/* Recent Activity */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-8 bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-primary-200/50"
-          >
+          <div className="mt-8 bg-white rounded p-6 border border-gray-200">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent Activity</h2>
             <div className="space-y-4">
               {[
@@ -227,8 +201,8 @@ const Dashboard: React.FC = () => {
                 { action: 'Added new character "Lyralei"', project: 'Chronicles of Aethermoor', time: '5 hours ago' },
                 { action: 'Sarah Chen commented on your story', project: 'Chronicles of Aethermoor', time: '1 day ago' },
               ].map((activity, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 hover:bg-primary-50/50 rounded-lg transition-colors">
-                  <div className="w-2 h-2 bg-primary-400 rounded-full flex-shrink-0"></div>
+                <div key={index} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded transition-colors">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0"></div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-800">{activity.action}</p>
                     <p className="text-xs text-gray-600">{activity.project}</p>
@@ -237,7 +211,7 @@ const Dashboard: React.FC = () => {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>
