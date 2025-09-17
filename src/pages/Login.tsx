@@ -1,3 +1,4 @@
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { BookOpen, Mail, Lock } from 'lucide-react';
@@ -11,16 +12,18 @@ type LoginFormInputs = {
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuthStore();
-const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormInputs>();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormInputs>();
+  const [serverError, setServerError] = React.useState<string | null>(null);
 
-const onSubmit = async (data: LoginFormInputs) => {
-  try {
-    await login(data.email, data.password);
-    navigate('/dashboard');
-  } catch (error) {
-    console.error('Login failed:', error);
-  }
-};
+  const onSubmit = async (data: LoginFormInputs) => {
+    setServerError(null);
+    try {
+      await login(data.email, data.password);
+      navigate('/dashboard');
+    } catch (error: any) {
+      setServerError(error?.message || 'Login failed');
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
@@ -41,6 +44,9 @@ const onSubmit = async (data: LoginFormInputs) => {
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {serverError && (
+              <p className="text-sm text-red-600 text-center mb-2">{serverError}</p>
+            )}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address

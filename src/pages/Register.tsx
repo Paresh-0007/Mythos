@@ -1,3 +1,4 @@
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { BookOpen, Mail, Lock, User } from 'lucide-react';
@@ -19,15 +20,17 @@ const Register = () => {
     watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormInputs>();
+  const [serverError, setServerError] = React.useState<string | null>(null);
 
   const password = watch('password');
 
   const onSubmit = async (data: RegisterFormInputs) => {
+    setServerError(null);
     try {
       await registerUser(data.name, data.email, data.password);
       navigate('/dashboard');
-    } catch (error) {
-      console.error('Registration failed:', error);
+    } catch (error: any) {
+      setServerError(error?.message || 'Registration failed');
     }
   };
 
@@ -52,6 +55,9 @@ const Register = () => {
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {serverError && (
+              <p className="text-sm text-red-600 text-center mb-2">{serverError}</p>
+            )}
             {/* Full Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
