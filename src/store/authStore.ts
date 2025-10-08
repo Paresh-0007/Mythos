@@ -12,6 +12,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   token: string | null;
+  init: () => void;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -20,10 +21,18 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
   user: null,
   isAuthenticated: false,
   token: null,
+
+  // Initialize authentication state based on stored token
+  init: () => {
+    const state = get();
+    if (state.token && state.user) {
+      set({ isAuthenticated: true });
+    }
+  },
       
       login: async (email: string, password: string): Promise<void> => {
         try {
@@ -70,6 +79,11 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      onRehydrateStorage: () => (state) => {
+        if (state && state.token && state.user) {
+          state.isAuthenticated = true;
+        }
+      },
     }
   )
 );
