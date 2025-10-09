@@ -8,6 +8,27 @@
       "when": 1758125445636,
       "tag": "0000_natural_mac_gargan",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1759943957584,
+      "tag": "0001_modern_outlaw_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1759949854139,
+      "tag": "0002_last_cardiac",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1759950640147,
+      "tag": "0003_massive_vapor",
+      "breakpoints": true
     }
   ]
 }

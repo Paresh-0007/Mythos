@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import {
   Save,
@@ -10,18 +10,46 @@ import {
   Italic,
   Underline,
   List,
+  Users,
 } from "lucide-react";
 import Navigation from "../components/Navigation";
 import { useProjectStore } from "../store/projectStore";
 
 const Editor = () => {
   const { projectId } = useParams();
-  const { projects, currentProject, setCurrentProject, updateChapter } =
-    useProjectStore();
+  const { 
+    projects, 
+    currentProject, 
+    setCurrentProject, 
+    updateChapter, 
+    addChapter,
+    addCollaborator,
+    removeCollaborator,
+    getChapterVersions,
+    getChapterVersion,
+    restoreChapterVersion,
+    getChatMessages,
+    sendChatMessage,
+    createProjectShare,
+    fetchProject, 
+    loading, 
+    error 
+  } = useProjectStore();
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [selectedChapter, setSelectedChapter] = useState(0);
   const [content, setContent] = useState("");
   const [showComments, setShowComments] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [creatingChapter, setCreatingChapter] = useState(false);
+  const [showCollaborators, setShowCollaborators] = useState(false);
+  const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("");
+  const [versions, setVersions] = useState<any[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [collaborators] = useState([
     {
       id: "1",
@@ -39,30 +67,148 @@ const Editor = () => {
 
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
 
-  useEffect(() => {
-    const project = projects.find((p) => p.id === projectId);
-    if (project) {
-      setCurrentProject(project);
-      if (project.chapters.length > 0) {
-        setContent(project.chapters[selectedChapter]?.content || "");
+  const createDefaultChapter = useCallback(async () => {
+    if (currentProject && currentProject.chapters.length === 0) {
+      try {
+        await addChapter(currentProject.id, {
+          title: "Chapter 1",
+          content: "",
+          order: 1,
+          wordCount: 0,
+        });
+      } catch (error) {
+        console.error("Failed to create default chapter:", error);
       }
     }
-  }, [projectId, projects, selectedChapter, setCurrentProject]);
+  }, [currentProject, addChapter]);
 
-  const handleSave = () => {
-    if (currentProject && currentProject.chapters[selectedChapter]) {
-      updateChapter(
+  const handleAddChapter = useCallback(async () => {
+    if (!currentProject) return;
+
+    try {
+      setCreatingChapter(true);
+      const nextChapterNumber = currentProject.chapters.length + 1;
+      await addChapter(currentProject.id, {
+        title: `Chapter ${nextChapterNumber}`,
+        content: "",
+        order: nextChapterNumber,
+        wordCount: 0,
+      });
+      // Select the new chapter
+      setSelectedChapter(currentProject.chapters.length);
+    } catch (error) {
+      console.error("Failed to create new chapter:", error);
+    } finally {
+      setCreatingChapter(false);
+    }
+  }, [currentProject, addChapter]);
+
+  const handleAddCollaborator = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentProject || !newCollaboratorEmail.trim()) return;
+
+    try {
+      await addCollaborator(currentProject.id, newCollaboratorEmail.trim());
+      setNewCollaboratorEmail("");
+    } catch (error) {
+      console.error("Failed to add collaborator:", error);
+    }
+  }, [currentProject, newCollaboratorEmail, addCollaborator]);
+
+  const handleRemoveCollaborator = useCallback(async (email: string) => {
+    if (!currentProject) return;
+
+    try {
+      await removeCollaborator(currentProject.id, email);
+    } catch (error) {
+      console.error("Failed to remove collaborator:", error);
+    }
+  }, [currentProject, removeCollaborator]);
+
+  const loadVersionHistory = useCallback(async () => {
+    if (!currentProject || !currentProject.chapters[selectedChapter]) return;
+
+    try {
+      setLoadingVersions(true);
+      const chapterVersions = await getChapterVersions(currentProject.chapters[selectedChapter].id);
+      setVersions(chapterVersions);
+    } catch (error) {
+      console.error("Failed to load version history:", error);
+    } finally {
+      setLoadingVersions(false);
+    }
+  }, [currentProject, selectedChapter, getChapterVersions]);
+
+  const handleRestoreVersion = useCallback(async (versionId: string) => {
+    if (!currentProject || !currentProject.chapters[selectedChapter]) return;
+
+    try {
+      await restoreChapterVersion(currentProject.chapters[selectedChapter].id, versionId);
+      // Reload version history and content
+      await loadVersionHistory();
+      if (currentProject.chapters[selectedChapter]) {
+        setContent(currentProject.chapters[selectedChapter].content || "");
+      }
+    } catch (error) {
+      console.error("Failed to restore version:", error);
+    }
+  }, [currentProject, selectedChapter, restoreChapterVersion, loadVersionHistory]);
+
+  // Effect to load project when projectId changes or when projects are fetched
+  useEffect(() => {
+    if (!projectId) return;
+
+    // Check if the project is in the local state
+    const localProject = projects.find((p) => p.id === projectId);
+    
+    if (localProject && (!currentProject || currentProject.id !== projectId)) {
+      // If project exists locally and it's not the current project, set it
+      setCurrentProject(localProject);
+    } else if (!localProject && (!currentProject || currentProject.id !== projectId)) {
+      // If project doesn't exist locally and it's not the current project, fetch it
+      fetchProject(projectId);
+    }
+  }, [projectId, projects]); // Include full projects array to detect when projects are loaded
+
+  // Separate effect to update content when project or chapter selection changes
+  useEffect(() => {
+    if (currentProject) {
+      if (currentProject.chapters.length > 0) {
+        setContent(currentProject.chapters[selectedChapter]?.content || "");
+        // Load version history for the selected chapter
+        loadVersionHistory();
+      } else {
+        // If project has no chapters, create a default chapter
+        createDefaultChapter();
+      }
+    }
+  }, [currentProject, selectedChapter, createDefaultChapter, loadVersionHistory]);
+
+  const handleSave = useCallback(async () => {
+    if (!currentProject || !currentProject.chapters[selectedChapter]) {
+      console.warn("No chapter selected for saving");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await updateChapter(
         currentProject.id,
         currentProject.chapters[selectedChapter].id,
         {
           content,
-          wordCount: content.split(" ").length,
+          wordCount: content.split(/\s+/).filter(word => word.length > 0).length,
         }
       );
+      console.log("Chapter saved successfully");
+    } catch (error) {
+      console.error("Failed to save chapter:", error);
+    } finally {
+      setSaving(false);
     }
-  };
+  }, [currentProject, selectedChapter, content, updateChapter]);
 
-  const formatText = (format: "bold" | "italic" | "underline") => {
+  const formatText = useCallback((format: "bold" | "italic" | "underline") => {
     if (!editorRef.current) return;
 
     const textarea = editorRef.current;
@@ -86,7 +232,104 @@ const Editor = () => {
     const newContent =
       content.substring(0, start) + formattedText + content.substring(end);
     setContent(newContent);
+  }, [content]);
+
+  // Load chat messages when a chapter is selected
+  const loadChatMessages = useCallback(async () => {
+    if (!currentProject || selectedChapter < 0) return;
+    
+    try {
+      setLoadingMessages(true);
+      const messages = await getChatMessages(
+        currentProject.id, 
+        currentProject.chapters[selectedChapter]?.id
+      );
+      setChatMessages(messages);
+    } catch (error) {
+      console.error('Error loading chat messages:', error);
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [currentProject, selectedChapter, getChatMessages]);
+
+  // Load chat messages when chapter selection changes
+  useEffect(() => {
+    if (showComments) {
+      loadChatMessages();
+    }
+  }, [showComments, selectedChapter, loadChatMessages]);
+
+  // Send a new chat message
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !currentProject) return;
+    
+    try {
+      const message = await sendChatMessage(
+        currentProject.id,
+        newMessage,
+        currentProject.chapters[selectedChapter]?.id
+      );
+      setChatMessages(prev => [...prev, message]);
+      setNewMessage("");
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
+
+  // Create a shareable link
+  const handleCreateShare = async () => {
+    if (!currentProject) return;
+    
+    try {
+      const share = await createProjectShare(currentProject.id, 'read');
+      setShareUrl(share.shareUrl);
+      // Copy to clipboard
+      navigator.clipboard.writeText(share.shareUrl);
+      alert('Share link copied to clipboard!');
+    } catch (error) {
+      console.error('Error creating share:', error);
+      alert('Failed to create share link');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen">
+        <Navigation
+          isCollapsed={navCollapsed}
+          onToggle={() => setNavCollapsed(!navCollapsed)}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading project...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen">
+        <Navigation
+          isCollapsed={navCollapsed}
+          onToggle={() => setNavCollapsed(!navCollapsed)}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-500 mb-4">{error}</p>
+            <button 
+              onClick={() => window.history.back()}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              ← Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentProject) {
     return (
@@ -96,7 +339,15 @@ const Editor = () => {
           onToggle={() => setNavCollapsed(!navCollapsed)}
         />
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-500">Project not found</p>
+          <div className="text-center">
+            <p className="text-gray-500 mb-4">Project not found</p>
+            <button 
+              onClick={() => window.history.back()}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              ← Go back to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -128,29 +379,43 @@ const Editor = () => {
             <div className="flex items-center gap-2">
               {/* Collaborators */}
               <div className="flex -space-x-2 mr-4">
-                {collaborators.map((collaborator) => (
-                  <div key={collaborator.id} className="relative">
-                    <img
-                      src={collaborator.avatar}
-                      alt={collaborator.name}
-                      className="w-8 h-8 rounded-full border-2 border-white"
-                    />
-                    {collaborator.active && (
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
-                    )}
-                  </div>
+                {(currentProject?.collaborators || []).slice(0, 3).map((email, i) => (
+                  <img
+                    key={i}
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`}
+                    alt={email}
+                    className="w-8 h-8 rounded-full border-2 border-white"
+                    title={email}
+                  />
                 ))}
+                {(currentProject?.collaborators || []).length > 3 && (
+                  <div className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">
+                    +{(currentProject?.collaborators || []).length - 3}
+                  </div>
+                )}
+                {(currentProject?.collaborators || []).length === 0 && (
+                  <div className="text-sm text-gray-500">No collaborators</div>
+                )}
               </div>
 
               <button
                 onClick={handleSave}
-                className="bg-blue-500 text-white px-4 py-2 rounded font-medium flex items-center gap-2 hover:bg-blue-600"
+                disabled={saving || !currentProject?.chapters[selectedChapter]}
+                className={`px-4 py-2 rounded font-medium flex items-center gap-2 transition-colors ${
+                  saving || !currentProject?.chapters[selectedChapter]
+                    ? "bg-gray-400 text-white cursor-not-allowed"
+                    : "bg-blue-500 text-white hover:bg-blue-600"
+                }`}
               >
                 <Save className="w-4 h-4" />
-                Save
+                {saving ? "Saving..." : "Save"}
               </button>
 
-              <button className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded">
+              <button 
+                onClick={handleCreateShare}
+                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
+                title="Share Project"
+              >
                 <Share2 className="w-4 h-4" />
               </button>
 
@@ -161,8 +426,21 @@ const Editor = () => {
                     ? "text-blue-600 bg-blue-100"
                     : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
                 }`}
+                title="Comments"
               >
                 <MessageCircle className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setShowCollaborators(!showCollaborators)}
+                className={`p-2 rounded ${
+                  showCollaborators
+                    ? "text-blue-600 bg-blue-100"
+                    : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                }`}
+                title="Manage Collaborators"
+              >
+                <Users className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -173,7 +451,16 @@ const Editor = () => {
           <div className="w-64 bg-white border-r border-gray-200 p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-gray-800">Chapters</h2>
-              <button className="text-blue-600 hover:text-blue-700">
+              <button 
+                onClick={handleAddChapter}
+                disabled={creatingChapter || !currentProject}
+                className={`transition-colors ${
+                  creatingChapter || !currentProject
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-blue-600 hover:text-blue-700"
+                }`}
+                title="Add new chapter"
+              >
                 <svg
                   className="w-4 h-4"
                   fill="none"
@@ -215,28 +502,54 @@ const Editor = () => {
                 <GitBranch className="w-4 h-4" />
                 Version History
               </h3>
-              <div className="space-y-2">
-                {[
-                  { version: "v1.3", time: "2 hours ago", author: "You" },
-                  { version: "v1.2", time: "1 day ago", author: "Sarah Chen" },
-                  { version: "v1.1", time: "3 days ago", author: "You" },
-                ].map((version, index) => (
-                  <div
-                    key={index}
-                    className="p-2 hover:bg-gray-50 rounded text-sm"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-800">
-                        {version.version}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {version.time}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600">{version.author}</p>
-                  </div>
-                ))}
-              </div>
+              
+              {loadingVersions ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                  <p className="text-xs text-gray-500">Loading versions...</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {versions.length > 0 ? (
+                    versions.map((version) => (
+                      <div
+                        key={version.id}
+                        className="p-2 hover:bg-gray-50 rounded text-sm border border-gray-100"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-gray-800">
+                            v{version.version}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(version.createdAt).toLocaleDateString()} {new Date(version.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-600">{version.authorEmail}</span>
+                          <button
+                            onClick={() => handleRestoreVersion(version.id)}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            Restore
+                          </button>
+                        </div>
+                        {version.changeDescription && (
+                          <p className="text-xs text-gray-500 mt-1 italic">
+                            {version.changeDescription}
+                          </p>
+                        )}
+                        <div className="text-xs text-gray-500 mt-1">
+                          {version.wordCount} words
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-500 text-center py-4">
+                      No version history available
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -274,9 +587,6 @@ const Editor = () => {
                   <span className="text-sm text-gray-600">
                     {content.split(" ").length} words
                   </span>
-                  <button className="p-2 hover:bg-blue-100 rounded text-gray-600 hover:text-blue-600">
-                    <Eye className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -297,56 +607,144 @@ const Editor = () => {
           {/* Comments Sidebar */}
           {showComments && (
             <div className="bg-white border-l border-gray-200 p-4 w-80">
-              <h3 className="font-semibold text-gray-800 mb-4">Comments</h3>
-              <div className="space-y-4">
-                {[
-                  {
-                    author: "Sarah Chen",
-                    avatar:
-                      "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-                    comment: "Love the character development here!",
-                    time: "2 hours ago",
-                  },
-                  {
-                    author: "John Smith",
-                    avatar:
-                      "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
-                    comment:
-                      "Maybe we should add more description to this scene?",
-                    time: "1 day ago",
-                  },
-                ].map((comment, index) => (
-                  <div
-                    key={index}
-                    className="p-3 bg-white rounded border border-gray-200"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <img
-                        src={comment.avatar}
-                        alt={comment.author}
-                        className="w-6 h-6 rounded-full"
-                      />
-                      <span className="text-sm font-medium text-gray-800">
-                        {comment.author}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {comment.time}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700">{comment.comment}</p>
+              <h3 className="font-semibold text-gray-800 mb-4">
+                Chapter Chat
+                {currentProject?.chapters[selectedChapter] && (
+                  <span className="text-sm font-normal text-gray-500 ml-2">
+                    - {currentProject.chapters[selectedChapter].title}
+                  </span>
+                )}
+              </h3>
+              
+              <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
+                {loadingMessages ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
                   </div>
-                ))}
+                ) : chatMessages.length === 0 ? (
+                  <p className="text-gray-500 text-sm text-center py-4">
+                    No messages yet. Start the conversation!
+                  </p>
+                ) : (
+                  chatMessages.map((message, index) => (
+                    <div
+                      key={message.id || index}
+                      className="p-3 bg-gray-50 rounded border"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <img
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${message.userName}`}
+                          alt={message.userName}
+                          className="w-6 h-6 rounded-full"
+                        />
+                        <span className="text-sm font-medium text-gray-800">
+                          {message.userName}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(message.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700">{message.message}</p>
+                    </div>
+                  ))
+                )}
               </div>
 
-              <div className="mt-4">
+              <div className="border-t pt-4">
                 <textarea
-                  placeholder="Add a comment..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message..."
                   className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   rows={3}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
                 />
-                <button className="mt-2 bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-600">
-                  Comment
+                <button 
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  className="mt-2 bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  Send Message
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Collaborators Sidebar */}
+          {showCollaborators && (
+            <div className="bg-white border-l border-gray-200 p-4 w-80">
+              <h3 className="font-semibold text-gray-800 mb-4">Collaborators</h3>
+              
+              {/* Add Collaborator Form */}
+              <form onSubmit={handleAddCollaborator} className="mb-6">
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Invite by Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newCollaboratorEmail}
+                    onChange={(e) => setNewCollaboratorEmail(e.target.value)}
+                    placeholder="Enter email address"
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={!newCollaboratorEmail.trim()}
+                  className="w-full bg-blue-500 text-white py-2 rounded text-sm font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Invite Collaborator
+                </button>
+              </form>
+
+              {/* Current Collaborators */}
+              <div className="space-y-3">
+                <h4 className="font-medium text-gray-700 text-sm">Current Collaborators</h4>
+                {(currentProject?.collaborators || []).length === 0 ? (
+                  <p className="text-gray-500 text-sm">No collaborators yet</p>
+                ) : (
+                  (currentProject?.collaborators || []).map((email, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded border"
+                    >
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`}
+                          alt={email}
+                          className="w-8 h-8 rounded-full"
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{email}</p>
+                          <p className="text-xs text-gray-500">Collaborator</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveCollaborator(email)}
+                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Collaboration Tips */}
+              <div className="mt-6 p-3 bg-blue-50 rounded border border-blue-200">
+                <h5 className="font-medium text-blue-800 text-sm mb-2">Collaboration Tips</h5>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  <li>• Collaborators can edit chapters and add comments</li>
+                  <li>• Changes are saved automatically</li>
+                  <li>• Version history tracks all changes</li>
+                </ul>
               </div>
             </div>
           )}
