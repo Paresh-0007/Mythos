@@ -1,18 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const { db, worldElements, projects } = require('../db');
-const { eq, and } = require('drizzle-orm');
+const { eq, and, or, sql } = require('drizzle-orm');
 const authMiddleware = require('../middleware/auth');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
-// Helper function to verify project ownership
-async function verifyProjectOwnership(projectId, userId) {
+// Helper: verify project access (owner OR collaborator)
+async function verifyProjectAccess(projectId, userId, userEmail) {
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+    .where(
+      and(
+        eq(projects.id, projectId),
+        or(
+          eq(projects.userId, userId),
+          sql`${projects.collaborators}::jsonb @> ${JSON.stringify([userEmail])}::jsonb`
+        )
+      )
+    )
     .limit(1);
   return project;
 }
@@ -26,8 +34,8 @@ router.get('/project/:projectId', async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     const { type } = req.query;
     
-    // Verify project ownership
-    const project = await verifyProjectOwnership(projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'Project not found or access denied' });
     }
@@ -69,8 +77,8 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'World element not found' });
     }
 
-    // Verify project ownership
-    const project = await verifyProjectOwnership(element.projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(element.projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'World element not found or access denied' });
     }
@@ -97,8 +105,8 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Verify project ownership
-    const project = await verifyProjectOwnership(projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'Project not found or access denied' });
     }
@@ -138,8 +146,8 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'World element not found' });
     }
 
-    // Verify project ownership
-    const project = await verifyProjectOwnership(existingElement.projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(existingElement.projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'World element not found or access denied' });
     }
@@ -187,8 +195,8 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'World element not found' });
     }
 
-    // Verify project ownership
-    const project = await verifyProjectOwnership(existingElement.projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(existingElement.projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'World element not found or access denied' });
     }

@@ -17,7 +17,7 @@ import { useProjectStore } from '../store/projectStore';
 
 const WorldBuilder = () => {
   const { projectId } = useParams();
-  const { projects, currentProject, setCurrentProject, addWorldElement } = useProjectStore();
+  const { projects, currentProject, setCurrentProject, fetchProject, loading, error, addWorldElement, updateWorldElement, deleteWorldElement } = useProjectStore();
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 // selectedType can be one of the element type keys OR null
@@ -25,13 +25,28 @@ const WorldBuilder = () => {
 // selectedElement is the ID of a world element OR null
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newDetails, setNewDetails] = useState(''); // optional JSON
+  const [creating, setCreating] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDetails, setEditDetails] = useState(''); // optional JSON
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    const project = projects.find(p => p.id === projectId);
-    if (project) {
-      setCurrentProject(project);
+    if (!projectId) return;
+
+    const localProject = projects.find(p => p.id === projectId);
+    if (localProject && (!currentProject || currentProject.id !== projectId)) {
+      setCurrentProject(localProject);
+    } else if (!localProject && (!currentProject || currentProject.id !== projectId)) {
+      fetchProject(projectId);
     }
-  }, [projectId, projects, setCurrentProject]);
+  }, [projectId, projects]);
 
   const elementTypes = [
     { type: 'location', label: 'Locations', icon: MapPin, color: 'bg-purple-500' },
@@ -49,6 +64,33 @@ const WorldBuilder = () => {
   }) || [];
 
   const selectedWorldElement = currentProject?.worldElements.find(e => e.id === selectedElement);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen">
+        <Navigation isCollapsed={navCollapsed} />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-600">Loading project...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen">
+        <Navigation isCollapsed={navCollapsed} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-500 mb-4">{error}</p>
+            <button onClick={() => window.history.back()} className="text-blue-600 hover:text-blue-700">
+              ← Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentProject) {
     return (
@@ -183,10 +225,41 @@ const WorldBuilder = () => {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <button className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded">
+                    <button
+                      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
+                      onClick={() => {
+                        if (!selectedWorldElement) return;
+                        setEditName(selectedWorldElement.name);
+                        setEditType(selectedWorldElement.type);
+                        setEditDescription(selectedWorldElement.description);
+                        try {
+                          setEditDetails(
+                            selectedWorldElement.details && Object.keys(selectedWorldElement.details).length > 0
+                              ? JSON.stringify(selectedWorldElement.details, null, 2)
+                              : ''
+                          );
+                        } catch {
+                          setEditDetails('');
+                        }
+                        setShowEditModal(true);
+                      }}
+                    >
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded">
+                    <button
+                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+                      onClick={async () => {
+                        if (!currentProject || !selectedElement) return;
+                        const proceed = window.confirm('Delete this world element? This cannot be undone.');
+                        if (!proceed) return;
+                        try {
+                          await deleteWorldElement(currentProject.id, selectedElement);
+                          setSelectedElement(null);
+                        } catch (err) {
+                          console.error('Failed to delete world element', err);
+                        }
+                      }}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -229,19 +302,57 @@ const WorldBuilder = () => {
           <div className="bg-white rounded p-6 w-full max-w-md mx-4">
             <h2 className="text-xl font-bold text-gray-800 mb-4">Create World Element</h2>
             
-            <form className="space-y-4">
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!currentProject) return;
+                const name = newName.trim();
+                const type = newType as any;
+                const description = newDescription.trim();
+                if (!name || !type) return;
+                let details: Record<string, any> = {};
+                if (newDetails.trim()) {
+                  try {
+                    details = JSON.parse(newDetails);
+                  } catch (err) {
+                    alert('Details must be valid JSON');
+                    return;
+                  }
+                }
+                try {
+                  setCreating(true);
+                  await addWorldElement(currentProject.id, { name, type, description, details });
+                  setShowCreateModal(false);
+                  setNewName('');
+                  setNewType('');
+                  setNewDescription('');
+                  setNewDetails('');
+                } catch (err) {
+                  console.error('Failed to create world element', err);
+                } finally {
+                  setCreating(false);
+                }
+              }}
+            >
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
                 <input
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Element name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
                 />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newType}
+                  onChange={(e) => setNewType(e.target.value)}
+                >
                   <option value="">Select a type</option>
                   {elementTypes.map((type) => (
                     <option key={type.type} value={type.type}>{type.label}</option>
@@ -255,6 +366,19 @@ const WorldBuilder = () => {
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Brief description"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Details (JSON, optional)</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder='e.g. {"climate":"temperate","population":10000}'
+                  value={newDetails}
+                  onChange={(e) => setNewDetails(e.target.value)}
                 />
               </div>
               
@@ -268,9 +392,117 @@ const WorldBuilder = () => {
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-500 text-white px-6 py-2 rounded font-medium hover:bg-blue-600"
+                  disabled={creating}
+                  className={`px-6 py-2 rounded font-medium ${creating ? 'bg-gray-400 text-white' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
                 >
-                  Create Element
+                  {creating ? 'Creating...' : 'Create Element'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && selectedWorldElement && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded p-6 w-full max-w-md mx-4">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Edit World Element</h2>
+
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!currentProject || !selectedElement) return;
+                const name = editName.trim();
+                const type = editType as any;
+                const description = editDescription.trim();
+                if (!name || !type) return;
+                let details: Record<string, any> | undefined = undefined;
+                if (editDetails.trim()) {
+                  try {
+                    details = JSON.parse(editDetails);
+                  } catch (err) {
+                    alert('Details must be valid JSON');
+                    return;
+                  }
+                }
+                try {
+                  setUpdating(true);
+                  await updateWorldElement(currentProject.id, selectedElement, {
+                    name,
+                    type,
+                    description,
+                    ...(details !== undefined ? { details } : {}),
+                  });
+                  setShowEditModal(false);
+                } catch (err) {
+                  console.error('Failed to update world element', err);
+                } finally {
+                  setUpdating(false);
+                }
+              }}
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Element name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={editType}
+                  onChange={(e) => setEditType(e.target.value)}
+                >
+                  <option value="">Select a type</option>
+                  {elementTypes.map((type) => (
+                    <option key={type.type} value={type.type}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Brief description"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Details (JSON, optional)</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder='e.g. {"climate":"temperate","population":10000}'
+                  value={editDetails}
+                  onChange={(e) => setEditDetails(e.target.value)}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updating}
+                  className={`px-6 py-2 rounded font-medium ${updating ? 'bg-gray-400 text-white' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                >
+                  {updating ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

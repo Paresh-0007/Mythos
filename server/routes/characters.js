@@ -1,18 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const { db, characters, projects } = require('../db');
-const { eq, and } = require('drizzle-orm');
+const { eq, and, or, sql } = require('drizzle-orm');
 const authMiddleware = require('../middleware/auth');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
-// Helper function to verify project ownership
-async function verifyProjectOwnership(projectId, userId) {
+// Helper: verify project access (owner OR collaborator)
+async function verifyProjectAccess(projectId, userId, userEmail) {
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+    .where(
+      and(
+        eq(projects.id, projectId),
+        or(
+          eq(projects.userId, userId),
+          sql`${projects.collaborators}::jsonb @> ${JSON.stringify([userEmail])}::jsonb`
+        )
+      )
+    )
     .limit(1);
   return project;
 }
@@ -22,8 +30,8 @@ router.get('/project/:projectId', async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId);
     
-    // Verify project ownership
-    const project = await verifyProjectOwnership(projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'Project not found or access denied' });
     }
@@ -55,8 +63,8 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Character not found' });
     }
 
-    // Verify project ownership
-    const project = await verifyProjectOwnership(character.projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(character.projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'Character not found or access denied' });
     }
@@ -77,8 +85,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Name and projectId are required' });
     }
 
-    // Verify project ownership
-    const project = await verifyProjectOwnership(projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'Project not found or access denied' });
     }
@@ -120,8 +128,8 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Character not found' });
     }
 
-    // Verify project ownership
-    const project = await verifyProjectOwnership(existingCharacter.projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(existingCharacter.projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'Character not found or access denied' });
     }
@@ -164,8 +172,8 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Character not found' });
     }
 
-    // Verify project ownership
-    const project = await verifyProjectOwnership(existingCharacter.projectId, req.user.id);
+  // Verify project access (owner or collaborator)
+  const project = await verifyProjectAccess(existingCharacter.projectId, req.user.id, req.user.email);
     if (!project) {
       return res.status(404).json({ error: 'Character not found or access denied' });
     }
