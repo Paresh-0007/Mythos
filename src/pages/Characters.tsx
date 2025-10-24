@@ -6,18 +6,35 @@ import { useProjectStore } from '../store/projectStore';
 
 const Characters = () => {
   const { projectId } = useParams();
-  const { projects, currentProject, setCurrentProject, addCharacter, updateCharacter } = useProjectStore();
+  const { projects, currentProject, setCurrentProject, addCharacter, updateCharacter, deleteCharacter, fetchProject, loading, error } = useProjectStore();
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newTraits, setNewTraits] = useState('');
+  const [newBackstory, setNewBackstory] = useState('');
+  const [newAvatar, setNewAvatar] = useState('');
+  const [newRelationships, setNewRelationships] = useState<{ characterId: string; relationship: string }[]>([]);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editTraits, setEditTraits] = useState('');
+  const [editBackstory, setEditBackstory] = useState('');
+  const [editAvatar, setEditAvatar] = useState('');
+  const [editRelationships, setEditRelationships] = useState<{ characterId: string; relationship: string }[]>([]);
 
   useEffect(() => {
-    const project = projects.find(p => p.id === projectId);
-    if (project) {
-      setCurrentProject(project);
+    if (!projectId) return;
+
+    const localProject = projects.find(p => p.id === projectId);
+    if (localProject && (!currentProject || currentProject.id !== projectId)) {
+      setCurrentProject(localProject);
+    } else if (!localProject && (!currentProject || currentProject.id !== projectId)) {
+      fetchProject(projectId);
     }
-  }, [projectId, projects, setCurrentProject]);
+  }, [projectId, projects]);
 
   const filteredCharacters = currentProject?.characters.filter(character =>
     character.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -25,6 +42,33 @@ const Characters = () => {
   ) || [];
 
   const selectedChar = currentProject?.characters.find(c => c.id === selectedCharacter);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen">
+        <Navigation isCollapsed={navCollapsed} />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gray-600">Loading project...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen">
+        <Navigation isCollapsed={navCollapsed} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-500 mb-4">{error}</p>
+            <button onClick={() => window.history.back()} className="text-blue-600 hover:text-blue-700">
+              ← Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentProject) {
     return (
@@ -139,10 +183,35 @@ const Characters = () => {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <button className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded">
+                    <button
+                      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
+                      onClick={() => {
+                        if (!selectedChar) return;
+                        setEditName(selectedChar.name);
+                        setEditDescription(selectedChar.description);
+                        setEditTraits((selectedChar.traits || []).join(', '));
+                        setEditBackstory(selectedChar.backstory || '');
+                        setEditAvatar(selectedChar.avatar || '');
+                        setEditRelationships(selectedChar.relationships || []);
+                        setShowEditModal(true);
+                      }}
+                    >
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded">
+                    <button
+                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+                      onClick={async () => {
+                        if (!currentProject || !selectedCharacter) return;
+                        const proceed = window.confirm('Delete this character? This cannot be undone.');
+                        if (!proceed) return;
+                        try {
+                          await deleteCharacter(currentProject.id, selectedCharacter);
+                          setSelectedCharacter(null);
+                        } catch (err) {
+                          console.error('Failed to delete character', err);
+                        }
+                      }}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -222,13 +291,47 @@ const Characters = () => {
           <div className="bg-white rounded p-6 w-full max-w-md mx-4">
             <h2 className="text-xl font-bold text-gray-800 mb-4">Create New Character</h2>
             
-            <form className="space-y-4">
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!currentProject) return;
+                const name = newName.trim();
+                if (!name) return;
+                const description = newDescription.trim();
+                const traits = newTraits
+                  .split(',')
+                  .map((t) => t.trim())
+                  .filter((t) => t.length > 0);
+                try {
+                  await addCharacter(currentProject.id, {
+                    name,
+                    description,
+                    traits,
+                    backstory: newBackstory,
+                    relationships: newRelationships,
+                    avatar: newAvatar || undefined,
+                  });
+                  setShowCreateModal(false);
+                  setNewName('');
+                  setNewDescription('');
+                  setNewTraits('');
+                  setNewBackstory('');
+                  setNewAvatar('');
+                  setNewRelationships([]);
+                } catch (err) {
+                  console.error('Failed to create character', err);
+                }
+              }}
+            >
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
                 <input
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Character name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
                 />
               </div>
               
@@ -238,6 +341,8 @@ const Characters = () => {
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Brief description"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
                 />
               </div>
               
@@ -247,7 +352,87 @@ const Characters = () => {
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="e.g. Brave, Intelligent, Stubborn"
+                  value={newTraits}
+                  onChange={(e) => setNewTraits(e.target.value)}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Backstory</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Character backstory"
+                  value={newBackstory}
+                  onChange={(e) => setNewBackstory(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Avatar URL</label>
+                <input
+                  type="url"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://example.com/avatar.png"
+                  value={newAvatar}
+                  onChange={(e) => setNewAvatar(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Relationships</label>
+                  <button
+                    type="button"
+                    className="text-blue-600 text-sm hover:text-blue-700"
+                    onClick={() => setNewRelationships((rels) => [...rels, { characterId: currentProject.characters[0]?.id || '', relationship: '' }])}
+                    disabled={currentProject.characters.length === 0}
+                    title={currentProject.characters.length === 0 ? 'Add another character first' : 'Add relationship'}
+                  >
+                    + Add
+                  </button>
+                </div>
+                {newRelationships.length === 0 ? (
+                  <p className="text-xs text-gray-500">No relationships added.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {newRelationships.map((rel, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <select
+                          className="flex-1 px-2 py-2 border border-gray-300 rounded"
+                          value={rel.characterId}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNewRelationships((rels) => rels.map((r, i) => i === idx ? { ...r, characterId: val } : r));
+                          }}
+                        >
+                          <option value="">Select character</option>
+                          {currentProject.characters.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          className="flex-1 px-2 py-2 border border-gray-300 rounded"
+                          placeholder="Relationship (e.g., Friend)"
+                          value={rel.relationship}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNewRelationships((rels) => rels.map((r, i) => i === idx ? { ...r, relationship: val } : r));
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="text-red-600 text-sm px-2 py-1 hover:text-red-700"
+                          onClick={() => setNewRelationships((rels) => rels.filter((_, i) => i !== idx))}
+                          title="Remove"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div className="flex justify-end gap-3 mt-6">
@@ -263,6 +448,169 @@ const Characters = () => {
                   className="bg-blue-500 text-white px-6 py-2 rounded font-medium hover:bg-blue-600"
                 >
                   Create Character
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && selectedChar && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded p-6 w-full max-w-md mx-4">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Edit Character</h2>
+
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!currentProject || !selectedCharacter) return;
+                const name = editName.trim();
+                if (!name) return;
+                const description = editDescription.trim();
+                const traits = editTraits
+                  .split(',')
+                  .map((t) => t.trim())
+                  .filter((t) => t.length > 0);
+                try {
+                  await updateCharacter(currentProject.id, selectedCharacter, {
+                    name,
+                    description,
+                    traits,
+                    backstory: editBackstory,
+                    relationships: editRelationships,
+                    avatar: editAvatar || undefined,
+                  });
+                  setShowEditModal(false);
+                } catch (err) {
+                  console.error('Failed to update character', err);
+                }
+              }}
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Character name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Brief description"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Traits (comma-separated)</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. Brave, Intelligent, Stubborn"
+                  value={editTraits}
+                  onChange={(e) => setEditTraits(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Backstory</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Character backstory"
+                  value={editBackstory}
+                  onChange={(e) => setEditBackstory(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Avatar URL</label>
+                <input
+                  type="url"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://example.com/avatar.png"
+                  value={editAvatar}
+                  onChange={(e) => setEditAvatar(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Relationships</label>
+                  <button
+                    type="button"
+                    className="text-blue-600 text-sm hover:text-blue-700"
+                    onClick={() => setEditRelationships((rels) => [...rels, { characterId: currentProject.characters.filter(c => c.id !== selectedChar.id)[0]?.id || '', relationship: '' }])}
+                    disabled={currentProject.characters.filter(c => c.id !== selectedChar.id).length === 0}
+                    title={currentProject.characters.filter(c => c.id !== selectedChar.id).length === 0 ? 'No other characters to relate' : 'Add relationship'}
+                  >
+                    + Add
+                  </button>
+                </div>
+                {editRelationships.length === 0 ? (
+                  <p className="text-xs text-gray-500">No relationships added.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {editRelationships.map((rel, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <select
+                          className="flex-1 px-2 py-2 border border-gray-300 rounded"
+                          value={rel.characterId}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditRelationships((rels) => rels.map((r, i) => i === idx ? { ...r, characterId: val } : r));
+                          }}
+                        >
+                          <option value="">Select character</option>
+                          {currentProject.characters.filter(c => c.id !== selectedChar.id).map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          className="flex-1 px-2 py-2 border border-gray-300 rounded"
+                          placeholder="Relationship (e.g., Friend)"
+                          value={rel.relationship}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditRelationships((rels) => rels.map((r, i) => i === idx ? { ...r, relationship: val } : r));
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="text-red-600 text-sm px-2 py-1 hover:text-red-700"
+                          onClick={() => setEditRelationships((rels) => rels.filter((_, i) => i !== idx))}
+                          title="Remove"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-500 text-white px-6 py-2 rounded font-medium hover:bg-blue-600"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>
