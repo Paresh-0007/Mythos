@@ -5,7 +5,6 @@ import {
   Share2,
   MessageCircle,
   GitBranch,
-  Eye,
   Bold,
   Italic,
   Underline,
@@ -26,7 +25,7 @@ const Editor = () => {
     addCollaborator,
     removeCollaborator,
     getChapterVersions,
-    getChapterVersion,
+    
     restoreChapterVersion,
     getChatMessages,
     sendChatMessage,
@@ -45,30 +44,16 @@ const Editor = () => {
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("");
   const [versions, setVersions] = useState<any[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
-  const [showShare, setShowShare] = useState(false);
-  const [shareUrl, setShareUrl] = useState("");
+  
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [collaborators] = useState([
-    {
-      id: "1",
-      name: "Sarah Chen",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-      active: true,
-    },
-    {
-      id: "2",
-      name: "John Smith",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
-      active: false,
-    },
-  ]);
+  
 
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
 
   const createDefaultChapter = useCallback(async () => {
-    if (currentProject && currentProject.chapters.length === 0) {
+    if (currentProject && (currentProject.chapters?.length ?? 0) === 0) {
       try {
         await addChapter(currentProject.id, {
           title: "Chapter 1",
@@ -87,7 +72,7 @@ const Editor = () => {
 
     try {
       setCreatingChapter(true);
-      const nextChapterNumber = currentProject.chapters.length + 1;
+      const nextChapterNumber = (currentProject.chapters?.length ?? 0) + 1;
       await addChapter(currentProject.id, {
         title: `Chapter ${nextChapterNumber}`,
         content: "",
@@ -95,7 +80,7 @@ const Editor = () => {
         wordCount: 0,
       });
       // Select the new chapter
-      setSelectedChapter(currentProject.chapters.length);
+      setSelectedChapter(currentProject.chapters?.length ?? 0);
     } catch (error) {
       console.error("Failed to create new chapter:", error);
     } finally {
@@ -173,8 +158,8 @@ const Editor = () => {
   // Separate effect to update content when project or chapter selection changes
   useEffect(() => {
     if (currentProject) {
-      if (currentProject.chapters.length > 0) {
-        setContent(currentProject.chapters[selectedChapter]?.content || "");
+      if ((currentProject.chapters?.length ?? 0) > 0) {
+        setContent(currentProject.chapters?.[selectedChapter]?.content || "");
         // Load version history for the selected chapter
         loadVersionHistory();
       } else {
@@ -185,7 +170,7 @@ const Editor = () => {
   }, [currentProject, selectedChapter, createDefaultChapter, loadVersionHistory]);
 
   const handleSave = useCallback(async () => {
-    if (!currentProject || !currentProject.chapters[selectedChapter]) {
+    if (!currentProject || !currentProject.chapters || !currentProject.chapters[selectedChapter]) {
       console.warn("No chapter selected for saving");
       return;
     }
@@ -242,7 +227,7 @@ const Editor = () => {
       setLoadingMessages(true);
       const messages = await getChatMessages(
         currentProject.id, 
-        currentProject.chapters[selectedChapter]?.id
+        currentProject.chapters?.[selectedChapter]?.id
       );
       setChatMessages(messages);
     } catch (error) {
@@ -267,7 +252,7 @@ const Editor = () => {
       const message = await sendChatMessage(
         currentProject.id,
         newMessage,
-        currentProject.chapters[selectedChapter]?.id
+        currentProject.chapters?.[selectedChapter]?.id
       );
       setChatMessages(prev => [...prev, message]);
       setNewMessage("");
@@ -282,7 +267,6 @@ const Editor = () => {
     
     try {
       const share = await createProjectShare(currentProject.id, 'read');
-      setShareUrl(share.shareUrl);
       // Copy to clipboard
       navigator.clipboard.writeText(share.shareUrl);
       alert('Share link copied to clipboard!');
@@ -370,7 +354,7 @@ const Editor = () => {
                   {currentProject.title}
                 </h1>
                 <p className="text-sm text-gray-600">
-                  {currentProject.chapters[selectedChapter]?.title ||
+                  {currentProject.chapters?.[selectedChapter]?.title ||
                     "New Chapter"}
                 </p>
               </div>
@@ -478,7 +462,7 @@ const Editor = () => {
             </div>
 
             <div className="space-y-2">
-              {currentProject.chapters.map((chapter, index) => (
+              {(currentProject.chapters || []).map((chapter, index) => (
                 <div
                   key={chapter.id}
                   className={`p-3 rounded cursor-pointer ${

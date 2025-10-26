@@ -17,7 +17,6 @@ import { format } from 'date-fns';
 const Dashboard = () => {
   const { 
     projects, 
-    setCurrentProject, 
     fetchProjects, 
     addProject, 
     loading, 
@@ -198,8 +197,7 @@ const Dashboard = () => {
                 {filteredProjects.map((project) => (
                   <div
                     key={project.id}
-                    className="bg-white rounded p-6 border border-gray-200 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => setCurrentProject(project)}
+                    className="bg-white rounded p-6 border border-gray-200 hover:shadow-md transition-all"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
@@ -261,7 +259,6 @@ const Dashboard = () => {
                         className="text-blue-600 hover:text-blue-700 font-medium text-sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setCurrentProject(project);
                         }}
                       >
                         Open →
