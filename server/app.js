@@ -4,7 +4,8 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var cors = require('cors');
-
+var dotenv = require('dotenv');
+dotenv.config();
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var authRouter = require('./routes/auth');
@@ -23,7 +24,7 @@ app.set('view engine', 'jade');
 
 // Allow requests from frontend
 app.use(cors({
-  origin: 'http://localhost:5173', // Updated to match your frontend port
+  origin: process.env.FRONTEND_URL, // Updated to match your frontend port
   credentials: true
 }));
 
